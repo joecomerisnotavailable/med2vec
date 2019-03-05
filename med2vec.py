@@ -5,7 +5,7 @@
 
 import sys, random
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 from collections import OrderedDict
 import argparse
 
@@ -18,7 +18,7 @@ def numpy_floatX(data):
 
 def unzip(zipped):
 	new_params = OrderedDict()
-	for k, v in zipped.iteritems():
+	for k, v in zipped.items():
 		new_params[k] = v.get_value()
 	return new_params
 
@@ -50,7 +50,7 @@ def load_params(options):
 
 def init_tparams(params):
 	tparams = OrderedDict()
-	for k, v in params.iteritems():
+	for k, v in params.items():
 		tparams[k] = theano.shared(v, name=k)
 	return tparams
 
@@ -138,9 +138,9 @@ def build_model(tparams, options):
 	else: return x, mask, iVector, jVector, total_cost
 
 def adadelta(tparams, grads, x, mask, iVector, jVector, cost, options, d=None, y=None):
-	zipped_grads = [theano.shared(p.get_value() * numpy_floatX(0.), name='%s_grad' % k) for k, p in tparams.iteritems()]
-	running_up2 = [theano.shared(p.get_value() * numpy_floatX(0.), name='%s_rup2' % k) for k, p in tparams.iteritems()]
-	running_grads2 = [theano.shared(p.get_value() * numpy_floatX(0.), name='%s_rgrad2' % k) for k, p in tparams.iteritems()]
+	zipped_grads = [theano.shared(p.get_value() * numpy_floatX(0.), name='%s_grad' % k) for k, p in tparams.items()]
+	running_up2 = [theano.shared(p.get_value() * numpy_floatX(0.), name='%s_rup2' % k) for k, p in tparams.items()]
+	running_grads2 = [theano.shared(p.get_value() * numpy_floatX(0.), name='%s_rgrad2' % k) for k, p in tparams.items()]
 
 	zgup = [(zg, g) for zg, g in zip(zipped_grads, grads)]
 	rg2up = [(rg2, 0.95 * rg2 + 0.05 * (g ** 2)) for rg2, g in zip(running_grads2, grads)]
@@ -156,7 +156,7 @@ def adadelta(tparams, grads, x, mask, iVector, jVector, cost, options, d=None, y
 
 	updir = [-T.sqrt(ru2 + 1e-6) / T.sqrt(rg2 + 1e-6) * zg for zg, ru2, rg2 in zip(zipped_grads, running_up2, running_grads2)]
 	ru2up = [(ru2, 0.95 * ru2 + 0.05 * (ud ** 2)) for ru2, ud in zip(running_up2, updir)]
-	param_up = [(p, p + ud) for p, ud in zip(tparams.values(), updir)]
+	param_up = [(p, p + ud) for p, ud in zip(list(tparams.values()), updir)]
 
 	f_update = theano.function([], [], updates=ru2up + param_up, on_unused_input='ignore', name='adadelta_f_update')
 
@@ -223,40 +223,40 @@ def train_med2vec(seqFile='seqFile.txt',
 				maxEpochs=1000):
 
 	options = locals().copy()
-	print 'initializing parameters'
+	print('initializing parameters')
 	params = init_params(options)
 	#params = load_params(options)
 	tparams = init_tparams(params)
 
-	print 'building models'
+	print('building models')
 	f_grad_shared = None
 	f_update = None
 	if demoSize > 0 and numYcodes > 0:
 		x, d, y, mask, iVector, jVector, cost = build_model(tparams, options)
-		grads = T.grad(cost, wrt=tparams.values())
+		grads = T.grad(cost, wrt=list(tparams.values()))
 		f_grad_shared, f_update = adadelta(tparams, grads, x, mask, iVector, jVector, cost, options, d=d, y=y)
 	elif demoSize == 0 and numYcodes > 0:
 		x, y, mask, iVector, jVector, cost = build_model(tparams, options)
-		grads = T.grad(cost, wrt=tparams.values())
+		grads = T.grad(cost, wrt=list(tparams.values()))
 		f_grad_shared, f_update = adadelta(tparams, grads, x, mask, iVector, jVector, cost, options, y=y)
 	elif demoSize > 0 and numYcodes == 0:
 		x, d, mask, iVector, jVector, cost = build_model(tparams, options)
-		grads = T.grad(cost, wrt=tparams.values())
+		grads = T.grad(cost, wrt=list(tparams.values()))
 		f_grad_shared, f_update = adadelta(tparams, grads, x, mask, iVector, jVector, cost, options, d=d)
 	else:
 		x, mask, iVector, jVector, cost = build_model(tparams, options)
-		grads = T.grad(cost, wrt=tparams.values())
+		grads = T.grad(cost, wrt=list(tparams.values()))
 		f_grad_shared, f_update = adadelta(tparams, grads, x, mask, iVector, jVector, cost, options)
 
-	print 'loading data'
+	print('loading data')
 	seqs, demos, labels = load_data(seqFile, demoFile, labelFile)
 	n_batches = int(np.ceil(float(len(seqs)) / float(batchSize)))
 
-	print 'training start'
-	for epoch in xrange(maxEpochs):
+	print('training start')
+	for epoch in range(maxEpochs):
 		iteration = 0
 		costVector = []
-		for index in random.sample(range(n_batches), n_batches):
+		for index in random.sample(list(range(n_batches)), n_batches):
 			batchX = seqs[batchSize*index:batchSize*(index+1)]
 			batchY = []
 			batchD = []
@@ -278,9 +278,9 @@ def train_med2vec(seqFile='seqFile.txt',
 				cost = f_grad_shared(x, mask, iVector, jVector)
 			costVector.append(cost)
 			f_update()
-			if (iteration % 10 == 0) and verbose: print 'epoch:%d, iteration:%d/%d, cost:%f' % (epoch, iteration, n_batches, cost)
+			if (iteration % 10 == 0) and verbose: print('epoch:%d, iteration:%d/%d, cost:%f' % (epoch, iteration, n_batches, cost))
 			iteration += 1
-		print 'epoch:%d, mean_cost:%f' % (epoch, np.mean(costVector))
+		print('epoch:%d, mean_cost:%f' % (epoch, np.mean(costVector)))
 		tempParams = unzip(tparams)
 		np.savez_compressed(outFile + '.' + str(epoch), **tempParams)
 
